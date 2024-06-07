@@ -7,6 +7,8 @@ import at.ac.fhcampuswien.fhmdb.database.*;
 import at.ac.fhcampuswien.fhmdb.models.Genre;
 import at.ac.fhcampuswien.fhmdb.models.Movie;
 import at.ac.fhcampuswien.fhmdb.models.SortedState;
+import at.ac.fhcampuswien.fhmdb.observerPattern.Observable;
+import at.ac.fhcampuswien.fhmdb.observerPattern.Observer;
 import at.ac.fhcampuswien.fhmdb.ui.MovieCell;
 import at.ac.fhcampuswien.fhmdb.ui.UserDialog;
 import com.jfoenix.controls.JFXButton;
@@ -25,7 +27,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.ResourceBundle;
 
-public class MovieListController implements Initializable {
+public class MovieListController implements Initializable, Observer {
     @FXML
     public JFXButton searchBtn;
 
@@ -59,15 +61,14 @@ public class MovieListController implements Initializable {
     private final SortState ascendingState = new AscendingState();
     private final SortState descendingState = new DescendingState();
 
-
+    private WatchlistRepository watchlistRepository;
 
     private final ClickEventHandler onAddToWatchlistClicked = (clickedItem) -> {
         if (clickedItem instanceof Movie movie) {
             WatchlistMovieEntity watchlistMovieEntity = new WatchlistMovieEntity(
                     movie.getId());
             try {
-                WatchlistRepository repository = WatchlistRepository.getInstance();
-                repository.addToWatchlist(watchlistMovieEntity);
+                watchlistRepository.addToWatchlist(watchlistMovieEntity);
             } catch (DataBaseException e) {
                 UserDialog dialog = new UserDialog("Database Error", "Could not add movie to watchlist");
                 dialog.show();
@@ -78,9 +79,24 @@ public class MovieListController implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        currentState = unsortedState;  // Startzustand
+        try {
+            watchlistRepository = WatchlistRepository.getInstance();
+            if (!watchlistRepository.hasObserver(this)) {
+                watchlistRepository.addObserver(this);  // Register as observer if not already registered
+            }
+        } catch (DataBaseException e) {
+            e.printStackTrace();
+        }
+
+        currentState = unsortedState;  // Start state
         initializeState();
         initializeLayout();
+    }
+
+    @Override
+    public void update(String message) {
+        UserDialog dialog = new UserDialog("Watchlist Update", message);
+        dialog.show();
     }
 
     public void initializeState() {
@@ -88,7 +104,7 @@ public class MovieListController implements Initializable {
         try {
             result = MovieAPI.getAllMovies();
             writeCache(result);
-        } catch (MovieApiException e){
+        } catch (MovieApiException e) {
             UserDialog dialog = new UserDialog("MovieAPI Error", "Could not load movies from api. Get movies from db cache instead");
             dialog.show();
             result = readCache();
@@ -111,7 +127,7 @@ public class MovieListController implements Initializable {
 
     private void writeCache(List<Movie> movies) {
         try {
-            // cache movies in db
+            // Cache movies in db
             MovieRepository movieRepository = MovieRepository.getInstance();
             movieRepository.removeAll();
             movieRepository.addAllMovies(movies);
@@ -123,36 +139,35 @@ public class MovieListController implements Initializable {
     }
 
     public void initializeLayout() {
-        movieListView.setItems(observableMovies);   // set the items of the listview to the observable list
-        movieListView.setCellFactory(movieListView -> new MovieCell(onAddToWatchlistClicked)); // apply custom cells to the listview
+        movieListView.setItems(observableMovies);   // Set the items of the listview to the observable list
+        movieListView.setCellFactory(movieListView -> new MovieCell(onAddToWatchlistClicked)); // Apply custom cells to the listview
 
-        // genre combobox
-        Object[] genres = Genre.values();   // get all genres
-        genreComboBox.getItems().add("No filter");  // add "no filter" to the combobox
-        genreComboBox.getItems().addAll(genres);    // add all genres to the combobox
+        // Genre combobox
+        Object[] genres = Genre.values();   // Get all genres
+        genreComboBox.getItems().add("No filter");  // Add "no filter" to the combobox
+        genreComboBox.getItems().addAll(genres);    // Add all genres to the combobox
         genreComboBox.setPromptText("Filter by Genre");
 
-        // year combobox
-        releaseYearComboBox.getItems().add("No filter");  // add "no filter" to the combobox
-        // fill array with numbers from 1900 to 2023
+        // Year combobox
+        releaseYearComboBox.getItems().add("No filter");  // Add "no filter" to the combobox
+        // Fill array with numbers from 1900 to 2023
         Integer[] years = new Integer[124];
         for (int i = 0; i < years.length; i++) {
             years[i] = 1900 + i;
         }
-        releaseYearComboBox.getItems().addAll(years);    // add all years to the combobox
+        releaseYearComboBox.getItems().addAll(years);    // Add all years to the combobox
         releaseYearComboBox.setPromptText("Filter by Release Year");
 
-        // rating combobox
-        ratingFromComboBox.getItems().add("No filter");  // add "no filter" to the combobox
-        // fill array with numbers from 0 to 10
+        // Rating combobox
+        ratingFromComboBox.getItems().add("No filter");  // Add "no filter" to the combobox
+        // Fill array with numbers from 0 to 10
         Integer[] ratings = new Integer[11];
         for (int i = 0; i < ratings.length; i++) {
             ratings[i] = i;
         }
-        ratingFromComboBox.getItems().addAll(ratings);    // add all ratings to the combobox
+        ratingFromComboBox.getItems().addAll(ratings);    // Add all ratings to the combobox
         ratingFromComboBox.setPromptText("Filter by Rating");
     }
-
 
     public void setMovies(List<Movie> movies) {
         allMovies = new ArrayList<>(movies);
@@ -176,33 +191,10 @@ public class MovieListController implements Initializable {
         return allMovies;
     }
 
+    public List<Movie> filterByQuery(List<Movie> movies, String query) {
+        if (query == null || query.isEmpty()) return movies;
 
-
-//    public void sortMovies(){
-//        if (sortedState == SortedState.NONE || sortedState == SortedState.DESCENDING) {
-//            sortMovies(SortedState.ASCENDING);
-//        } else if (sortedState == SortedState.ASCENDING) {
-//            sortMovies(SortedState.DESCENDING);
-//        }
-//    }
-
-    // sort movies based on sortedState
-    // by default sorted state is NONE
-    // afterwards it switches between ascending and descending
-//    public void sortMovies(SortedState sortDirection) {
-//        if (sortDirection == SortedState.ASCENDING) {
-//            observableMovies.sort(Comparator.comparing(Movie::getTitle));
-//            sortedState = SortedState.ASCENDING;
-//        } else {
-//            observableMovies.sort(Comparator.comparing(Movie::getTitle).reversed());
-//            sortedState = SortedState.DESCENDING;
-//        }
-//    }
-
-    public List<Movie> filterByQuery(List<Movie> movies, String query){
-        if(query == null || query.isEmpty()) return movies;
-
-        if(movies == null) {
+        if (movies == null) {
             throw new IllegalArgumentException("movies must not be null");
         }
 
@@ -212,10 +204,10 @@ public class MovieListController implements Initializable {
                 .toList();
     }
 
-    public List<Movie> filterByGenre(List<Movie> movies, Genre genre){
-        if(genre == null) return movies;
+    public List<Movie> filterByGenre(List<Movie> movies, Genre genre) {
+        if (genre == null) return movies;
 
-        if(movies == null) {
+        if (movies == null) {
             throw new IllegalArgumentException("movies must not be null");
         }
 
@@ -244,7 +236,7 @@ public class MovieListController implements Initializable {
         String genreValue = validateComboboxValue(genreComboBox.getSelectionModel().getSelectedItem());
 
         Genre genre = null;
-        if(genreValue != null) {
+        if (genreValue != null) {
             genre = Genre.valueOf(genreValue);
         }
 
@@ -254,22 +246,22 @@ public class MovieListController implements Initializable {
         setMovieList(movies);
         // applyAllFilters(searchQuery, genre);
 
-        if(sortedState != SortedState.NONE) {
+        if (sortedState != SortedState.NONE) {
             sortMovies();
         }
     }
 
     public String validateComboboxValue(Object value) {
-        if(value != null && !value.toString().equals("No filter")) {
+        if (value != null && !value.toString().equals("No filter")) {
             return value.toString();
         }
         return null;
     }
 
     public List<Movie> getMovies(String searchQuery, Genre genre, String releaseYear, String ratingFrom) {
-        try{
+        try {
             return MovieAPI.getAllMovies(searchQuery, genre, releaseYear, ratingFrom);
-        }catch (MovieApiException e){
+        } catch (MovieApiException e) {
             System.out.println(e.getMessage());
             UserDialog dialog = new UserDialog("MovieApi Error", "Could not load movies from api.");
             dialog.show();
@@ -281,3 +273,4 @@ public class MovieListController implements Initializable {
         sortMovies();
     }
 }
+
