@@ -53,6 +53,13 @@ public class MovieListController implements Initializable {
 
     protected SortedState sortedState;
 
+    private SortState currentState;
+    private SortState unsortedState = new UnsortedState();
+    private SortState ascendingState = new AscendingState();
+    private SortState descendingState = new DescendingState();
+
+
+
     private final ClickEventHandler onAddToWatchlistClicked = (clickedItem) -> {
         if (clickedItem instanceof Movie movie) {
             WatchlistMovieEntity watchlistMovieEntity = new WatchlistMovieEntity(
@@ -70,6 +77,7 @@ public class MovieListController implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
+        currentState = unsortedState;  // Startzustand
         initializeState();
         initializeLayout();
     }
@@ -154,13 +162,32 @@ public class MovieListController implements Initializable {
         observableMovies.clear();
         observableMovies.addAll(movies);
     }
-    public void sortMovies(){
+
+    public void sortMovies() {
+        currentState.sort(observableMovies);
+        movieListView.refresh();  // Aktualisieren Sie die ListView, um die Änderungen anzuzeigen
+        switchState();  // Wechseln Sie den Zustand nach jedem Klick
+    }
+
+    private void switchState() {
+        if (currentState instanceof UnsortedState) {
+            currentState = ascendingState;
+        } else if (currentState instanceof AscendingState) {
+            currentState = descendingState;
+        } else {
+            currentState = unsortedState;
+        }
+    }
+
+
+    /*public void sortMovies(){
         if (sortedState == SortedState.NONE || sortedState == SortedState.DESCENDING) {
             sortMovies(SortedState.ASCENDING);
         } else if (sortedState == SortedState.ASCENDING) {
             sortMovies(SortedState.DESCENDING);
         }
-    }
+    }*/
+
     // sort movies based on sortedState
     // by default sorted state is NONE
     // afterwards it switches between ascending and descending
