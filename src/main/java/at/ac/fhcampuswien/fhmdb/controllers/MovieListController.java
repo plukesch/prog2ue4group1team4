@@ -54,9 +54,10 @@ public class MovieListController implements Initializable {
     protected SortedState sortedState;
 
     private SortState currentState;
-    private SortState unsortedState = new UnsortedState();
-    private SortState ascendingState = new AscendingState();
-    private SortState descendingState = new DescendingState();
+
+    private final SortState unsortedState = new UnsortedState();
+    private final SortState ascendingState = new AscendingState();
+    private final SortState descendingState = new DescendingState();
 
 
 
@@ -95,7 +96,6 @@ public class MovieListController implements Initializable {
 
         setMovies(result);
         setMovieList(result);
-        sortedState = SortedState.NONE;
     }
 
     private List<Movie> readCache() {
@@ -155,7 +155,7 @@ public class MovieListController implements Initializable {
 
 
     public void setMovies(List<Movie> movies) {
-        allMovies = movies;
+        allMovies = new ArrayList<>(movies);
     }
 
     public void setMovieList(List<Movie> movies) {
@@ -164,41 +164,40 @@ public class MovieListController implements Initializable {
     }
 
     public void sortMovies() {
-        currentState.sort(observableMovies);
-        movieListView.refresh();  // Aktualisieren Sie die ListView, um die Änderungen anzuzeigen
-        switchState();  // Wechseln Sie den Zustand nach jedem Klick
+        currentState.sort(this, observableMovies);
+        movieListView.refresh();  // Refresh the ListView to display changes
     }
 
-    private void switchState() {
-        if (currentState instanceof AscendingState) {
-            currentState = descendingState;
-        } else {
-            currentState = ascendingState;
-        }
+    public void setCurrentState(SortState state) {
+        this.currentState = state;
+    }
+
+    public List<Movie> getAllMovies() {
+        return allMovies;
     }
 
 
 
-    /*public void sortMovies(){
-        if (sortedState == SortedState.NONE || sortedState == SortedState.DESCENDING) {
-            sortMovies(SortedState.ASCENDING);
-        } else if (sortedState == SortedState.ASCENDING) {
-            sortMovies(SortedState.DESCENDING);
-        }
-    }*/
+//    public void sortMovies(){
+//        if (sortedState == SortedState.NONE || sortedState == SortedState.DESCENDING) {
+//            sortMovies(SortedState.ASCENDING);
+//        } else if (sortedState == SortedState.ASCENDING) {
+//            sortMovies(SortedState.DESCENDING);
+//        }
+//    }
 
     // sort movies based on sortedState
     // by default sorted state is NONE
     // afterwards it switches between ascending and descending
-    public void sortMovies(SortedState sortDirection) {
-        if (sortDirection == SortedState.ASCENDING) {
-            observableMovies.sort(Comparator.comparing(Movie::getTitle));
-            sortedState = SortedState.ASCENDING;
-        } else {
-            observableMovies.sort(Comparator.comparing(Movie::getTitle).reversed());
-            sortedState = SortedState.DESCENDING;
-        }
-    }
+//    public void sortMovies(SortedState sortDirection) {
+//        if (sortDirection == SortedState.ASCENDING) {
+//            observableMovies.sort(Comparator.comparing(Movie::getTitle));
+//            sortedState = SortedState.ASCENDING;
+//        } else {
+//            observableMovies.sort(Comparator.comparing(Movie::getTitle).reversed());
+//            sortedState = SortedState.DESCENDING;
+//        }
+//    }
 
     public List<Movie> filterByQuery(List<Movie> movies, String query){
         if(query == null || query.isEmpty()) return movies;
@@ -256,7 +255,7 @@ public class MovieListController implements Initializable {
         // applyAllFilters(searchQuery, genre);
 
         if(sortedState != SortedState.NONE) {
-            sortMovies(sortedState);
+            sortMovies();
         }
     }
 
