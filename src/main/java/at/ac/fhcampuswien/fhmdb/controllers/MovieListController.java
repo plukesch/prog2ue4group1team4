@@ -170,14 +170,13 @@ public class MovieListController implements Initializable {
     }
 
     private void switchState() {
-        if (currentState instanceof UnsortedState) {
-            currentState = ascendingState;
-        } else if (currentState instanceof AscendingState) {
+        if (currentState instanceof AscendingState) {
             currentState = descendingState;
         } else {
-            currentState = unsortedState;
+            currentState = ascendingState;
         }
     }
+
 
 
     /*public void sortMovies(){
